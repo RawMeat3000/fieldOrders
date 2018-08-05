@@ -24,6 +24,11 @@ TODO:
 
 TRADING_PAIR = 'ETH'
 
+class Number:
+    def __init__(self):
+        stuff = self
+
+
 class FieldOrder():
     """
     The ultimate trading tool. Fat finger catcher, always profit taking, always rebuying with confidence of an eventual return to base. Thanks Luc!
@@ -44,28 +49,32 @@ class FieldOrder():
                         weight=1):#, confidencePercent=100, lowestSellPercent=3, rebuy=False ):
 
 
-        self.tickerData = hitBTC.get_ticker(coin + TRADING_PAIR)
-        print(self.tickerData)
+        tickerData = hitBTC.get_ticker(coin + TRADING_PAIR)
+        print(tickerData)
 
-        self.symbolData = hitBTC.get_symbol(coin + TRADING_PAIR)
-        print(self.symbolData)
+        symbolData = hitBTC.get_symbol(coin + TRADING_PAIR)
+        print(symbolData)
 
         DefaultContext.prec = 8
         DefaultContext.rounding = ROUND_HALF_DOWN
 
-        self.quantityIncrement = Decimal( self.symbolData['quantityIncrement'] )
+        self.quantityIncrement = Decimal(symbolData['quantityIncrement'] )
+        self.tickSize = Decimal(symbolData['tickSize'])
 
         self.orderType = orderType
         self.coin = coin
-        self.capitalToSpend = Decimal(capitalToSpend)
-        self.coinsToSell = Decimal(coinsToSell)
-        self.weight = Decimal(weight)
-        self.orderRange = Decimal( abs(sellStart - sellEnd) )
+        self.capitalToSpend = capitalToSpend
+        self.coinsToSell = coinsToSell
+        self.weight = weight
 
         # This would be an sell only order.
         if sellStart:
-            self.sellStart = Decimal(sellStart)
-            self.sellEnd = Decimal(sellEnd)
+            self.sellStart = sellStart
+            self.sellEnd = sellEnd
+            print(sellEnd)
+            print(type((sellEnd - sellStart)))
+            print("%.8f"%(sellEnd - sellStart))
+            self.orderRange = round(sellEnd - sellStart)
             # magic
             self.fieldSell()
 
@@ -81,7 +90,7 @@ class FieldOrder():
             self.profitStep = ( sellEnd - self.profitSellStart ) / numberOfOrders
             self.profitSellEnd = sellEnd + self.profitStep
 
-            self.buyStart
+            self.buyStart = "heh?"
 
             # places the profit orders
             self.placeFieldOrder()
@@ -92,9 +101,9 @@ class FieldOrder():
         """
         TODO:
         """
-        print("Coins to sell:", self.coinsToSell, type(self.coinsToSell) )
-        print("Coins to spend:", self.capitalToSpend)
-        print("Min trade:", self.quantityIncrement, type(self.quantityIncrement) )
+        #print("Coins to sell:", self.coinsToSell)
+        #print("Coins to spend:", self.capitalToSpend)
+        #print("Min trade:", self.quantityIncrement)
         if self.orderType == 'buy':
             maxOrders = self.capitalToSpend / self.quantityIncrement * start # should be  self.capitalToSpend * buyPrice
         if self.orderType == 'sell':
@@ -102,18 +111,18 @@ class FieldOrder():
             # s
             maxOrders = self.coinsToSell / self.quantityIncrement
 
-        print( end, start )
         print( "Sell range:", self.orderRange )
 
-        stepSize = self.orderRange / maxOrders
+        if self.orderRange / self.tickSize > maxOrders:
+        stepSize = self.orderRange / self.tickSize ? maxOrders
 
-        print(stepSize)
+        print("Step size:", stepSize)
 
         stepIter = itertools.count( start, maxOrders )
         return itertools.islice(stepIter, stepSize)
 
     def fieldSell(self):
-        print("Weight:", self.weight)
+        #print("Weight:", self.weight)
         for x in self.weightedStep(self.sellStart, self.sellEnd):
             print(x)
             if self.weight:
@@ -153,15 +162,19 @@ class FieldOrder():
 
 coin = 'BSTN'
 buyStart = 0
-buyEnd = .0000011
-capitalToSpend = .05 # ETH
-sellStart = .00000170
-sellEnd = .00000210
-sellBreakEven = .0012
+buyEnd = '.0000011'
+capitalToSpend = '.05' # ETH
+sellStart = '.00000170'
+sellEnd = '.00000210'
+sellBreakEven = '.0012'
 coinsToSell = 30000
 weight = 1
 confidencePercent = 80
 lowestSellPercent = 2
 rebuy = False
 
-pro = FieldOrder(coin, 'sell', buyStart, buyEnd, capitalToSpend, sellStart, sellEnd, sellBreakEven, coinsToSell, weight)
+order = FieldOrder(coin, 'sell',
+                Decimal(buyStart), Decimal(buyEnd), Decimal(capitalToSpend),
+                Decimal(sellStart), Decimal(sellEnd), Decimal(sellBreakEven),
+                Decimal(coinsToSell),
+                Decimal(weight))
