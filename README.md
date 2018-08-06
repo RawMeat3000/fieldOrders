@@ -1,1 +1,1 @@
-# fieldOrders - create many order simultaneously, with option weight
+# fieldOrders - create many orders simultaneously, with optional weight
