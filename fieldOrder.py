@@ -12,6 +12,7 @@ import gettext
 import sys
 import time
 from decimal import Decimal, DefaultContext, ROUND_HALF_DOWN
+import numpy
 
 import hitBTC
 
@@ -48,7 +49,6 @@ class FieldOrder():
     def __init__( self, coin, orderType, buyStart, buyEnd, capitalToSpend, sellStart, sellEnd, sellBreakEven, coinsToSell,
                         weight=1):#, confidencePercent=100, lowestSellPercent=3, rebuy=False ):
 
-
         tickerData = hitBTC.get_ticker(coin + TRADING_PAIR)
         print(tickerData)
 
@@ -71,10 +71,7 @@ class FieldOrder():
         if sellStart:
             self.sellStart = sellStart
             self.sellEnd = sellEnd
-            print(sellEnd)
-            print(type((sellEnd - sellStart)))
-            print("%.8f"%(sellEnd - sellStart))
-            self.orderRange = round(sellEnd - sellStart)
+            self.orderRange = sellEnd - sellStart
             # magic
             self.fieldSell()
 
@@ -97,34 +94,37 @@ class FieldOrder():
 
         #self.monitorOrders()
 
+    def fprint(self, message, printMe):
+        print(f"{message} {printMe:.8f}")
+
     def weightedStep(self, start, end):
         """
-        TODO:
+        Returns dictionary of {price: amount}
         """
-        #print("Coins to sell:", self.coinsToSell)
-        #print("Coins to spend:", self.capitalToSpend)
-        #print("Min trade:", self.quantityIncrement)
         if self.orderType == 'buy':
-            maxOrders = self.capitalToSpend / self.quantityIncrement * start # should be  self.capitalToSpend * buyPrice
+            maxOrders = self.capitalToSpend / self.tickSize # should be  self.capitalToSpend * buyPrice
         if self.orderType == 'sell':
-            # based on the number of coins to sell, and the increment of the coins
-            # s
-            maxOrders = self.coinsToSell / self.quantityIncrement
+            # This is the most number of orders possible
+            maxOrders = self.orderRange / self.tickSize
 
-        print( "Sell range:", self.orderRange )
+            self.fprint("Sell range:", self.orderRange)
 
-        if self.orderRange / self.tickSize > maxOrders:
-        stepSize = self.orderRange / self.tickSize ? maxOrders
+            numSteps = self.coinsToSell / self.quantityIncrement
+            # just to be safe
+            if numSteps > maxOrders:
+                print("NUM STEPS WAS MORE THAN MAX ORDERS", numSteps, maxOrders)
+                numSteps = maxOrders
 
-        print("Step size:", stepSize)
+            self.fprint("Step size:", numSteps)
 
-        stepIter = itertools.count( start, maxOrders )
-        return itertools.islice(stepIter, stepSize)
+            stepSize = self.coinsToSell / numSteps
+
+            numRange = numpy.arange(start, end, stepSize)
+            print(numRange)
 
     def fieldSell(self):
         #print("Weight:", self.weight)
         for x in self.weightedStep(self.sellStart, self.sellEnd):
-            print(x)
             if self.weight:
                 print ("Placing sell order at", x) # todo: round decimal place
                 # API CALL
@@ -174,7 +174,7 @@ lowestSellPercent = 2
 rebuy = False
 
 order = FieldOrder(coin, 'sell',
-                Decimal(buyStart), Decimal(buyEnd), Decimal(capitalToSpend),
-                Decimal(sellStart), Decimal(sellEnd), Decimal(sellBreakEven),
-                Decimal(coinsToSell),
-                Decimal(weight))
+                    Decimal(buyStart), Decimal(buyEnd), Decimal(capitalToSpend),
+                    Decimal(sellStart), Decimal(sellEnd), Decimal(sellBreakEven),
+                    Decimal(coinsToSell),
+                    Decimal(weight))
