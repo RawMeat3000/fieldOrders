@@ -11,8 +11,7 @@ import datetime
 import gettext
 import sys
 import time
-from decimal import Decimal, DefaultContext, ROUND_HALF_DOWN
-import numpy
+import mpmath as mp
 
 import hitBTC
 
@@ -22,13 +21,7 @@ TODO:
 -Refresh every... 5? minutes, more isn't needed.
 """
 
-
 TRADING_PAIR = 'ETH'
-
-class Number:
-    def __init__(self):
-        stuff = self
-
 
 class FieldOrder():
     """
@@ -55,11 +48,10 @@ class FieldOrder():
         symbolData = hitBTC.get_symbol(coin + TRADING_PAIR)
         print(symbolData)
 
-        DefaultContext.prec = 8
-        DefaultContext.rounding = ROUND_HALF_DOWN
+        self.quantityIncrement = mp.mpf(symbolData['quantityIncrement'] )
+        self.tickSize = mp.mpf(symbolData['tickSize'])
 
-        self.quantityIncrement = Decimal(symbolData['quantityIncrement'] )
-        self.tickSize = Decimal(symbolData['tickSize'])
+        mp.mp.dps = len( str(self.tickSize).split('.')[1] )
 
         self.orderType = orderType
         self.coin = coin
@@ -94,9 +86,6 @@ class FieldOrder():
 
         #self.monitorOrders()
 
-    def fprint(self, message, printMe):
-        print(f"{message} {printMe:.8f}")
-
     def weightedStep(self, start, end):
         """
         Returns dictionary of {price: amount}
@@ -107,7 +96,7 @@ class FieldOrder():
             # This is the most number of orders possible
             maxOrders = self.orderRange / self.tickSize
 
-            self.fprint("Sell range:", self.orderRange)
+            print("Sell range:", self.orderRange)
 
             numSteps = self.coinsToSell / self.quantityIncrement
             # just to be safe
@@ -115,18 +104,25 @@ class FieldOrder():
                 print("NUM STEPS WAS MORE THAN MAX ORDERS", numSteps, maxOrders)
                 numSteps = maxOrders
 
-            self.fprint("Step size:", numSteps)
+            print("Step size:", numSteps)
 
-            stepSize = self.coinsToSell / numSteps
+            coinsInOrder = self.coinsToSell / numSteps
 
-            numRange = numpy.arange(start, end, stepSize)
-            print(numRange)
+            sellPrices = mp.linspace(start, end, maxOrders)
+
+            orderDetails = []
+            for sellPrice in sellPrices:
+                orderDetails.append( (coinsInOrder, sellPrice) )
+
+            return orderDetails
 
     def fieldSell(self):
-        #print("Weight:", self.weight)
-        for x in self.weightedStep(self.sellStart, self.sellEnd):
+        orderDetails = self.weightedStep(self.sellStart, self.sellEnd)
+        print("Weight:", self.weight)
+        for numCoins, sellPrice in orderDetails:
             if self.weight:
-                print ("Placing sell order at", x) # todo: round decimal place
+
+                print("Selling %.8f at %.8f"%(numCoins, sellPrice)) # todo: round decimal place
                 # API CALL
                 debugTime = .01
                 refreshTime = .5
@@ -174,7 +170,7 @@ lowestSellPercent = 2
 rebuy = False
 
 order = FieldOrder(coin, 'sell',
-                    Decimal(buyStart), Decimal(buyEnd), Decimal(capitalToSpend),
-                    Decimal(sellStart), Decimal(sellEnd), Decimal(sellBreakEven),
-                    Decimal(coinsToSell),
-                    Decimal(weight))
+                    mp.mpf(buyStart), mp.mpf(buyEnd), mp.mpf(capitalToSpend),
+                    mp.mpf(sellStart), mp.mpf(sellEnd), mp.mpf(sellBreakEven),
+                    mp.mpf(coinsToSell),
+                    mp.mpf(weight))
