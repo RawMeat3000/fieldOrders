@@ -14,6 +14,7 @@ import time
 import mpmath as mp
 
 import hitBTC
+import cryptopia
 
 """
 TODO:
@@ -21,7 +22,9 @@ TODO:
 -Refresh every... 5? minutes, more isn't needed.
 """
 
-TRADING_PAIR = 'ETH'
+TRADING_PAIR = 'BTC'
+PUB = '16e4e3eea0fe4865ae5f5375fd610de8'
+SEC = 'vD973qhT6NvIC+iY/fhi8/F/ygA7bwCCi4zSRwRJYSg='
 
 class FieldOrder():
     """
@@ -40,13 +43,27 @@ class FieldOrder():
         minimumSellPercent: int : Optional, Start selling at this % profit
     """
     def __init__( self, coin, orderType, buyStart, buyEnd, capitalToSpend, sellStart, sellEnd, sellBreakEven, coinsToSell,
-                        weight=1):#, confidencePercent=100, lowestSellPercent=3, rebuy=False ):
+                weight=1):#, confidencePercent=100, lowestSellPercent=3, rebuy=False ):
 
-        tickerData = hitBTC.get_ticker(coin + TRADING_PAIR)
+        cpia = cryptopia.Cryptopia(PUB, SEC)
+
+        market = coin + '/' + TRADING_PAIR
+        print(market)
+
+        tickerData = cpia.get_market(market)
         print(tickerData)
 
-        symbolData = hitBTC.get_symbol(coin + TRADING_PAIR)
+        symbolData = cpia.get_openorders(market)
         print(symbolData)
+
+        marketHistory = cpia.get_history(market)
+        print(marketHistory)
+
+        pastOrders = cpia.get_orders(market)
+        print(pastOrders)
+
+        marketHistory = cpia.get_market(market)
+        print(marketHistory)
 
         self.quantityIncrement = mp.mpf(symbolData['quantityIncrement'] )
         self.tickSize = mp.mpf(symbolData['tickSize'])
@@ -156,7 +173,7 @@ class FieldOrder():
             time.sleep(60)
 
 
-coin = 'BSTN'
+coin = 'DIVX'
 buyStart = 0
 buyEnd = '.0000011'
 capitalToSpend = '.05' # ETH
