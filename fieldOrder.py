@@ -1,210 +1,129 @@
-import itertools
-
 """
-TODO:
-
+To create financial independence and free myself
 """
 
+import os
 import sys
 import time
-import gettext
+import json
 import datetime
 import schedule
+import itertools
+import importlib
+
 
 import mpmath as mp
-
-import python-kucoin-develop.client as ku
+sys.path.append(os.path.dirname(__file__) + "\\kucoin\\")
+import kucoin.client as kucoin
+importlib.reload(kucoin)
 
 """
 TODO:
 Refresh once a minute
 get all markets
 
+
+START DOWNLOADING ALL PRICE ACTION
+KEEP LOCAL COPY of 1hr data
 """
 
+class ChartHistory(object):
+    def __init__(self):
+        pass
+
+class dobj(object):
+    """
+    Lets you use dict keys as object attributes
+    kinda cool, but mostly just confusing in practice
+    """
+    def __init__(self, d):
+        self.__dict__ = d
+
+    def __iter__(self):
+        for attr, value in self.__dict__.items():
+            yield attr, value
 
 class FieldOrder():
     """
     The ultimate trading tool (once it's finished). Fat finger catcher, always profit taking, always rebuying with confidence of an eventual return to base. Thanks Luc!
-    Parameters:
-        orderType: string : 'buy' or 'sell'
-        buyStart: Decimal : Highest price to begin buying at
-        buyEnd: Decimal : Lowest price to buy at
-        capitalToSpend : Decimal : Amount of BTC or ETH allocated to the transaction
-        sellStart:
-        sellEnd:
-        sellBreakEven:
-        weight: Optional
-        rounding:
-        confidencePercent: int : Optional, basically equals the % under base to have finished selling to break even
-        minimumSellPercent: int : Optional, Start selling at this % profit
-
-    ALternate usage. Buy at all time low, or some aveage of ATL and current price, only, ever. Sell at whatever 100% you want. Under 10,000% definitely.
     """
-    def __init__( self, coin, buyStart, buyEnd, capitalToSpend, sellStart, sellEnd, sellBreakEven, coinsToSell, weight=1):
-        #, confidencePercent=100, lowestSellPercent=3, rebuy=False ):
-
+    def __init__(self):
         # BOT
-        TRADING_PAIR = "USDT"
+
+        # never change these...
+        self.base_currency = "USDT"
         PUB = "5e4a22d29a8f450008d86f51"
         SEC = "6e2a49f0-5d86-45cf-a638-7e29fb561090"
-        TRADING = "649587"
+        TRADING = "tthis_willbethebestBot15!"
+        # /never change these...
 
-        ku.Client(PUB, SEC, TRADING)
-        cpia = cryptopia.Cryptopia(PUB, SEC)
+        self.api = kucoin.Client(PUB, SEC, TRADING)
 
-        market = coin + '/' + TRADING_PAIR
-        print(market)
+        self.data_file = os.path.dirname(__file__) + "{}_data.json".format(self.base_currency)
 
-        tickerData = cpia.get_market(market)
-        print("Ticker data:", tickerData)
+        self.json = json.load(self.data_file)
+        # BIG object that has all the data we really need
+        self.data = json.load(self.data_file)
 
-        symbolData = cpia.get_openorders(market)
-        print("Symbol data:", symbolData)
+        #quantityIncrement = mp.mpf( symbolData['quantityIncrement'] )
+        #tickSize = mp.mpf( symbolData['tickSize'] )
 
-        allHistory = cpia.get_history(market)
-        print("Market history:", allHistory)
+         # bot should never have a blance of more than this, send an email every day we exceed it
+        self.maxCapital = 10000
 
-        pastOrders = cpia.get_orders(market)
-        print("Past orders:", pastOrders)
+        # get wanted pairs and wanted data
+        self.get_pairs()
+        # start the business
+        self.manage_orders()
 
-        marketHistory = cpia.get_market(market)
-        print("Market history:", marketHistory)
-
-        quantityIncrement = mp.mpf( symbolData['quantityIncrement'] )
-        tickSize = mp.mpf( symbolData['tickSize'] )
-
-        mp.mp.dps = len( str(self.tickSize).split('.')[1] )
-
-         # bot should never trade more than this, send an email every day we exceed it
-        self.maxCapital = 5000
-
-        self.orderType = None
-        self.coin = coin
-        self.capitalToSpend = capitalToSpend
-        self.coinsToSell = coinsToSell
-        self.weight = weight
-        self.numOrders = 5 # TODO: Actually calculate this
-
-        # This would be an sell only order.
-        if sellStart:
-            self.orderType = "buy"
-            self.sellStart = sellStart
-            self.sellEnd = sellEnd
-            self.orderRange = sellEnd - sellStart
-            # magic
-            self.fieldSell()
-
-        if buyStart:
-            self.orderType = "sell"
-            # Calculate order placement based on stuff I made up and forgot
-            self.breakEvenSellStart = buyStart + (buyStart * lowestSellPercent)
-            self.breakEvenStep = (sellBreakEven - self.breakEvenSellStart) / self.numOrders
-            self.breakEvenSellEnd = sellBreakEven + self.breakEvenStep
-            # places the break even orders
-            self.placeFieldOrder()
-
-            self.profitSellStart = sellBreakEven + sellBreakEven * ( lowestSellPercent * 2 )
-            self.profitStep = ( sellEnd - self.profitSellStart ) / self.numOrders
-            self.profitSellEnd = sellEnd + self.profitStep
-
-            self.buyStart = "heh?"
-
-            # places the profit orders
-            self.placeFieldOrder()
-
-        #self.monitorOrders()
-
-    def weightedStep(self, start, end):
+    def get_usdt_pairs(self):
         """
-        Returns dictionary of {price: amount}
+        Gets all the SHITCOIN/USDT trading pairs and any additional information the bot might need
         """
-        if self.orderType == 'buy':
-            maxOrders = self.capitalToSpend / self.tickSize # should be  self.capitalToSpend * buyPrice
-        if self.orderType == 'sell':
-            # This is the most number of orders possible
-            maxOrders = self.orderRange / self.tickSize
+        usdt_pairs = {}
+        raw_symbols = self.api.get_symbols()
+        '''
+        {'symbol': 'GRIN-USDT', 'quoteMaxSize': '99999999', 'enableTrading': True, 'priceIncrement': '0.000001',
+        'feeCurrency': 'USDT', 'baseMaxSize': '10000000000', 'baseCurrency': 'GRIN', 'quoteCurrency': 'USDT', 'market': 'USDS', 'quoteIncrement': '0.000001',
+        'baseMinSize': '0.01', 'quoteMinSize': '0.01', 'name': 'GRIN-USDT', 'baseIncrement': '0.00000001', 'isMarginEnabled': False}
+        '''
+        for data in raw_symbols:
+            if self.base_currency in data["symbol"]:
+                pair = data["symbol"]
+                quote, base = pair.split('-')
+                if base == self.base_currency:
+                    # add/modify data here
+                    usdt_pairs[quote] = data
 
-            print("Sell range:", self.orderRange)
+        return usdt_pairs
 
-            numSteps = self.coinsToSell / self.quantityIncrement
-            # just to be safe
-            if numSteps > maxOrders:
-                print("NUM STEPS WAS MORE THAN MAX ORDERS", numSteps, maxOrders)
-                numSteps = maxOrders
+    def get_pairs(self):
+        self.usdt_pairs = self.get_usdt_pairs()
+        print("Got data for {} pairs".format(len(self.usdt_pairs)))
 
-            print("Step size:", numSteps)
-
-            coinsInOrder = self.coinsToSell / numSteps
-
-            sellPrices = mp.linspace(start, end, maxOrders)
-
-            orderDetails = []
-            for sellPrice in sellPrices:
-                orderDetails.append( (coinsInOrder, sellPrice) )
-
-            return orderDetails
-
-    def fieldSell(self):
-        orderDetails = self.weightedStep(self.sellStart, self.sellEnd)
-        print("Weight:", self.weight)
-        for numCoins, sellPrice in orderDetails:
-            if self.weight:
-                print("Selling %.8f at %.8f"%(numCoins, sellPrice)) # todo: round decimal place
-                # API CALL
-                debugTime = .01
-                refreshTime = .5
-                # coinigy only allows 2 orders per second
-                time.sleep(debugTime)
-
-    def getCurrentSellOrders():
-        print "stuff"
-
-    def main(self, fieldOrder):
+    def manage_orders(self):
         """
-        Main loop, monitors trades
+        Goes through all open orders on pair, figured out if they're in range, wipe and recreate if adjustment is needed
+        def get_orders(self, symbol=None, status=None, side=None, order_type=None, start=None, end=None, page=None, limit=None):
         """
-        #ui = Application()
-        COINS = self.refreshCoins() # ALL COINS
-        while True:
-            currentPrice = self.priceCheck(self.coinTicker)
-            previousPrice = 0
+        for coin, pair_info in self.usdt_pairs.items():
+            orders = self.api.get_orders(pair_info["symbol"], status="active")
+            print(coin, orders["totalNum"])
+            if orders["totalNum"]:
+                print(len(orders["items"]))
+                for order in orders["items"]:
+                    print(order)
 
-            #
-            # Check if anything has sold
-            for coin in COINS:
-                existingSellOrders =  getCurrentSellOrders(coin)
-                for sellOrder in existingSellOrders:
-                    if sellOrder.price > previousLow(1):#minute
-                        sellPrice = sellOrder.units#math
-                        print("dingus")
+                    print(mp.mpf())
 
+                # ticker = current price action, bid/ask, etc
+                ticker = self.api.get_ticker(pair_info["symbol"])
+                print(ticker)
+                return
 
+if __name__ == "__main__":
+    order = FieldOrder()
 
-
-            # if current price less than 8% of previousPrice
-            # wipe current field orders
-            # set new ones
-            previousPrice = currentPrice
-
-            time.sleep(.1)
-
-
-coin = 'WC'
-buyStart = 0
-buyEnd = '.0000011'
-capitalToSpend = '.05' # ETH
-sellStart = '.00000170'
-sellEnd = '.00000210'
-sellBreakEven = '.0012'
-coinsToSell = 30000
-weight = 1
-confidencePercent = 80
-lowestSellPercent = 2
-rebuy = False
-
-order = FieldOrder(coin, 'sell',
-                    mp.mpf(buyStart), mp.mpf(buyEnd), mp.mpf(capitalToSpend),
-                    mp.mpf(sellStart), mp.mpf(sellEnd), mp.mpf(sellBreakEven),
-                    mp.mpf(coinsToSell),
-                    mp.mpf(weight))
+    # the rest on a timer
+    schedule.every(1).days.do(order.get_pairs)
+    schedule.every(1).minutes.do(order.manage_orders)
