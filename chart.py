@@ -20,4 +20,4 @@ help(PIL)
 
 
 def draw_chart(data):
-    
+    pass
